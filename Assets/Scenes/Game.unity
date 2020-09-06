@@ -298,6 +298,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1091749778}
   - component: {fileID: 1091749777}
+  - component: {fileID: 1091749779}
   m_Layer: 0
   m_Name: Tile
   m_TagString: Untagged
@@ -370,6 +371,18 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1091749779
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1091749776}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 10caff20508833946b07b0a3ddf3d1a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &2017980834
 GameObject:
   m_ObjectHideFlags: 0
@@ -381,7 +394,7 @@ GameObject:
   - component: {fileID: 2017980836}
   - component: {fileID: 2017980835}
   m_Layer: 0
-  m_Name: GameManager
+  m_Name: GameController
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -399,6 +412,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ae771935d185dfa40bc5b1bb484e366e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  levelMap: {fileID: 0}
+  tile: {fileID: 0}
 --- !u!4 &2017980836
 Transform:
   m_ObjectHideFlags: 0
