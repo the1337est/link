@@ -18,6 +18,7 @@ public class GameController : MonoBehaviour
     [SerializeField] private List<Texture2D> levels;
 
     [Header("Gameplay Variables")]
+    [SerializeField] private Transform container;
     [SerializeField] private GameObject tile;
     [SerializeField] private GameObject player;
     [SerializeField] private GameObject trophy;
@@ -52,19 +53,25 @@ public class GameController : MonoBehaviour
 
         main = Camera.main;
         levels = Resources.LoadAll<Texture2D>("Levels/").ToList();
-        if (levels != null && levels.Count > 0)
-        {
-            levelMap = levels[0];
-        }
     }
 
     private void Start()
     {
+        LoadLevel();
+    }
+
+    private void LoadLevel()
+    {
+        if (levels != null && levels.Count > 0)
+        {
+            levelMap = levels[levelIndex];
+        }
         FindAllColours();
         CreateLevel();
         ResetCamera();
         State = GameState.Playing;
     }
+
     private void Update()
     {
         if (Input.GetKeyDown(KeyCode.Space))
@@ -77,8 +84,8 @@ public class GameController : MonoBehaviour
     {
         if (levelMap != null)
         {
-            float x = levelMap.width / 2f;
-            float y = levelMap.height / 2f;
+            float x = (levelMap.width  - 1)/ 2f;
+            float y = (levelMap.height - 1)/ 2f;
             main.transform.position = new Vector3(x, y, -10);
         }
     }
@@ -111,12 +118,24 @@ public class GameController : MonoBehaviour
         List<Color> temp = new List<Color>(colours);
         temp.RemoveAt(temp.Count - 1);
         temp.RemoveAt(0);
-
-        shuffledColours = new List<Color>();
-        System.Random r = new System.Random();
-        shuffledColours = temp.OrderBy(x => r.Next()).ToList();
-        shuffledColours.Insert(0, colours[0]);
-        shuffledColours.Add(colours[colours.Count - 1]);
+        if (levelIndex > 0)
+        {
+            shuffledColours = new List<Color>();
+            System.Random r = new System.Random();
+            shuffledColours = temp.OrderBy(x => r.Next()).ToList();
+            shuffledColours.Insert(0, colours[0]);
+            shuffledColours.Add(colours[colours.Count - 1]);
+        }
+        else
+        {
+            shuffledColours = new List<Color>
+            {
+                colours[0],
+                colours[2],
+                colours[1],
+                colours[3]
+            };
+        }
         Debug.Log("Found " + colours.Count + " colours");
     }
 
@@ -226,7 +245,7 @@ public class GameController : MonoBehaviour
 
     private void SpawnTile(int x, int y)
     {
-        GameObject g = Instantiate(tile, transform);
+        GameObject g = Instantiate(tile, container);
         Tile t = g.GetComponent<Tile>();
         int index = Tiles.Count;
         if (shuffledColours.Count > index)
@@ -297,6 +316,10 @@ public class GameController : MonoBehaviour
                 else
                 {
                     //game finished
+                    ResetGame();
+                    levelIndex++;
+                    yield return new WaitForSeconds(3f);
+                    LoadLevel();
                     proceed = false;
                 }
             }
@@ -318,7 +341,15 @@ public class GameController : MonoBehaviour
 
     public void ResetGame()
     {
-
+        Transform[] all = container.GetComponentsInChildren<Transform>();
+        for (int i = 1; i < all.Length; i++)
+        {
+            
+            Destroy(all[i].gameObject);
+        }
+        Tiles.Clear();
+        shuffledColours.Clear();
+        colours.Clear();
     }
 }
 
