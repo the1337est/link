@@ -7,6 +7,7 @@ public class Tile : MonoBehaviour
 {
     public int ID;
     public Color Color;
+    public int ColorID;
 
     SpriteRenderer rend;
 
@@ -24,6 +25,9 @@ public class Tile : MonoBehaviour
     public void OnMouseDown()
     {
         Debug.Log("Clicked!");
-        GameController.Instance.OnTileClicked(this);
+        if (ID != 0 && ID != GameController.Instance.Tiles.Count - 1)
+        {
+            GameController.Instance.OnTileClicked(this);
+        }
     }
 }

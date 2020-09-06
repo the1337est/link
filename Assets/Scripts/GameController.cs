@@ -15,16 +15,26 @@ public class GameController : MonoBehaviour
     public GameObject Selection;
     [SerializeField] private Texture2D levelMap;
 
+    [SerializeField] private List<Texture2D> levels;
+
     [Header("Gameplay Variables")]
     [SerializeField] private GameObject tile;
+    [SerializeField] private GameObject player;
+    [SerializeField] private GameObject trophy;
     [SerializeField] private List<Color> colours;
     [SerializeField] private List<Color> shuffledColours;
 
     private Direction currentDirection = Direction.Right;
 
+    public GameState State = GameState.None;
+
     private Tile selected = null;
 
+    private int levelIndex = 0;
+
     public List<Tile> Tiles = new List<Tile>();
+
+    public GameObject Canvas;
 
     private void Awake()
     {
@@ -41,6 +51,11 @@ public class GameController : MonoBehaviour
         }
 
         main = Camera.main;
+        levels = Resources.LoadAll<Texture2D>("Levels/").ToList();
+        if (levels != null && levels.Count > 0)
+        {
+            levelMap = levels[0];
+        }
     }
 
     private void Start()
@@ -48,6 +63,14 @@ public class GameController : MonoBehaviour
         FindAllColours();
         CreateLevel();
         ResetCamera();
+        State = GameState.Playing;
+    }
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            StartNavigating();
+        }
     }
 
     private void ResetCamera()
@@ -60,27 +83,8 @@ public class GameController : MonoBehaviour
         }
     }
 
-    //public void CreateLevel()
-    //{
-    //    if (levelMap != null)
-    //    {
-    //        for (int y = levelMap.height - 1; y >= 0; y--)
-    //        {
-    //            for (int x = 0; x < levelMap.width; x++)
-    //            {
-    //                Color color = levelMap.GetPixel(x, y);
-    //                if (color == Color.white)
-    //                {
-    //                    SpawnTile(x, y);
-    //                }
-    //            }
-    //        }
-    //    }
-    //}
-
     public void FindAllColours()
     {
-        colours = new List<Color>();
         for (int y = 0; y < levelMap.height; y++)
         {
             bool shouldBreak = false;
@@ -104,9 +108,15 @@ public class GameController : MonoBehaviour
                 break;
             }
         }
+        List<Color> temp = new List<Color>(colours);
+        temp.RemoveAt(temp.Count - 1);
+        temp.RemoveAt(0);
+
         shuffledColours = new List<Color>();
         System.Random r = new System.Random();
-        shuffledColours = colours.OrderBy(x => r.Next()).ToList();
+        shuffledColours = temp.OrderBy(x => r.Next()).ToList();
+        shuffledColours.Insert(0, colours[0]);
+        shuffledColours.Add(colours[colours.Count - 1]);
         Debug.Log("Found " + colours.Count + " colours");
     }
 
@@ -126,6 +136,8 @@ public class GameController : MonoBehaviour
                 }
             }
             Debug.Log("Found entry at Y = " + y);
+            player.transform.position = new Vector3(x, y, 0);
+            
             Vector2 current = new Vector2(x, y);
             Vector2 next = current;
             GetNextWhite(current, out next);
@@ -146,6 +158,7 @@ public class GameController : MonoBehaviour
                     break;
                 }
             }
+            trophy.transform.position = Tiles[Tiles.Count - 1].transform.position;
         }
     }
 
@@ -202,8 +215,10 @@ public class GameController : MonoBehaviour
     {
         if (a != null && b != null)
         {
-
+            int tempID = a.ColorID;
             Color temp = a.Color;
+            a.ColorID = b.ColorID;
+            b.ColorID = tempID;
             a.SetColor(b.Color);
             b.SetColor(temp); 
         }
@@ -216,7 +231,11 @@ public class GameController : MonoBehaviour
         int index = Tiles.Count;
         if (shuffledColours.Count > index)
         {
-            t.SetColor(shuffledColours[index]);
+            t.ID = index;
+            Color color = shuffledColours[index];
+            int colourIndex = colours.IndexOf(color);
+            t.ColorID = colourIndex;
+            t.SetColor(color);
         }
         Tiles.Add(t);
         g.transform.position = new Vector3(x, y, 0);
@@ -242,6 +261,65 @@ public class GameController : MonoBehaviour
             Selection.SetActive(false);
         }
     }
+
+    public void StartNavigating()
+    {
+        if (State == GameState.Playing)
+        {
+            StopCoroutine(Navigation());
+            State = GameState.Navigating;
+            StartCoroutine(Navigation());
+        }
+    }
+
+    private IEnumerator Navigation()
+    {
+        if (Tiles != null && Tiles.Count > 0)
+        {
+            int index = 0;
+            bool proceed = true;
+            while (proceed)
+            {
+                index++;
+                if (index < Tiles.Count)
+                {
+                    Tile t = Tiles[index];
+                    if (t.ID == t.ColorID)
+                    {
+                        player.transform.position = t.transform.position;
+                        yield return new WaitForSeconds(0.35f);
+                    }
+                    else
+                    {
+                        proceed = false;
+                    }
+                }
+                else
+                {
+                    //game finished
+                    proceed = false;
+                }
+            }
+
+        }
+        State = GameState.Playing;
+        yield return null;
+    }
+
+    public void NewGame()
+    {
+        levelIndex = 0;
+    }
+
+    public void ToggleCredits(bool toggle)
+    {
+
+    }
+
+    public void ResetGame()
+    {
+
+    }
 }
 
 public enum Direction
@@ -250,4 +328,11 @@ public enum Direction
     Up,
     Down, 
     Left
+}
+
+public enum GameState
+{
+    None,
+    Playing,
+    Navigating
 }
