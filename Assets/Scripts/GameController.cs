@@ -62,14 +62,14 @@ public class GameController : MonoBehaviour
 
     private void LoadLevel()
     {
-        if (levels != null && levels.Count > 0)
+        if (levels != null && levels.Count > levelIndex)
         {
             levelMap = levels[levelIndex];
-        }
-        FindAllColours();
-        CreateLevel();
-        ResetCamera();
-        State = GameState.Playing;
+            FindAllColours();
+            CreateLevel();
+            ResetCamera();
+            State = GameState.Playing;
+        }      
     }
 
     private void Update()
@@ -159,7 +159,7 @@ public class GameController : MonoBehaviour
             
             Vector2 current = new Vector2(x, y);
             Vector2 next = current;
-            GetNextWhite(current, out next);
+            GetNextTile(current, out next);
             bool check = true;
             int maxTries = levelMap.height * levelMap.width;
             int tries = 1;
@@ -167,7 +167,7 @@ public class GameController : MonoBehaviour
             {
                 SpawnTile((int)next.x, (int)next.y);
                 current = next;
-                if (!GetNextWhite(current, out next))
+                if (!GetNextTile(current, out next))
                 {
                     check = false;
                 }
@@ -181,7 +181,7 @@ public class GameController : MonoBehaviour
         }
     }
 
-    private bool GetNextWhite(Vector2 current, out Vector2 next)
+    private bool GetNextTile(Vector2 current, out Vector2 next)
     {
            
         bool found = false;
@@ -196,6 +196,18 @@ public class GameController : MonoBehaviour
                 {
                     currentDirection = Direction.Right;
                     next = right;
+                    return true;
+                }
+            }
+
+            Vector2 left = current + Vector2.left;
+            if (currentDirection != Direction.Right && left.x >= 0)
+            {
+                Color c = levelMap.GetPixel((int)left.x, (int)left.y);
+                if (c == Color.white)
+                {
+                    currentDirection = Direction.Left;
+                    next = left;
                     return true;
                 }
             }
