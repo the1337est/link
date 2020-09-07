@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class GameController : MonoBehaviour
 {
@@ -25,6 +26,17 @@ public class GameController : MonoBehaviour
     [SerializeField] private List<Color> colours;
     [SerializeField] private List<Color> shuffledColours;
 
+    [SerializeField] private Sprite play;
+    [SerializeField] private Sprite stop;
+
+    [SerializeField] private Image navigationButton;
+
+    [SerializeField] private GameObject gameover;
+
+    [SerializeField] private AudioSource levelFinishAudio;
+    [SerializeField] private AudioSource shortClickAudio;
+    [SerializeField] private AudioSource swapAudio;
+
     private Direction currentDirection = Direction.Right;
 
     public GameState State = GameState.None;
@@ -35,7 +47,10 @@ public class GameController : MonoBehaviour
 
     public List<Tile> Tiles = new List<Tile>();
 
-    public GameObject Canvas;
+    public GameObject MenuCanvas;
+    public GameObject GameCanvas;
+
+    public bool Testing = false;
 
     private void Awake()
     {
@@ -55,28 +70,52 @@ public class GameController : MonoBehaviour
         levels = Resources.LoadAll<Texture2D>("Levels/").ToList();
     }
 
-    private void Start()
+    public void StartGame()
     {
         LoadLevel();
     }
+
+    public void MainMenu()
+    {
+        gameover.SetActive(false);
+        StartCoroutine(ResetGame(true));
+        MenuCanvas.gameObject.SetActive(true);
+        GameCanvas.gameObject.SetActive(false);
+    }
+
+    public void QuitGame()
+    {
+        Application.Quit();
+    }
+
 
     private void LoadLevel()
     {
         if (levels != null && levels.Count > levelIndex)
         {
-            levelMap = levels[levelIndex];
-            FindAllColours();
+            if (!Testing)
+            {
+                levelMap = levels[levelIndex];
+            }
+            currentDirection = Direction.Right;
+            //FindAllColours();
             CreateLevel();
+            ShuffleColours();
             ResetCamera();
             State = GameState.Playing;
-        }      
+        }
+        else
+        {
+            levelIndex = 0;
+            gameover.SetActive(true);
+        }
     }
 
     private void Update()
     {
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            StartNavigating();
+            ToggleNavigation();
         }
     }
 
@@ -87,38 +126,18 @@ public class GameController : MonoBehaviour
             float x = (levelMap.width  - 1)/ 2f;
             float y = (levelMap.height - 1)/ 2f;
             main.transform.position = new Vector3(x, y, -10);
+            main.orthographicSize = levelMap.height >= 10 ? 7f : 5f;
         }
     }
 
-    public void FindAllColours()
+    public void ShuffleColours()
     {
-        for (int y = 0; y < levelMap.height; y++)
-        {
-            bool shouldBreak = false;
-            for (int x = 0; x < levelMap.width; x++)
-            {
-                bool found = false;
-                Color c = levelMap.GetPixel(x, y);
-                if(c != Color.black && c != Color.white)
-                {
-                    found = true;
-                    colours.Add(levelMap.GetPixel(x, y));
-                }
-                if (!found)
-                {
-                    shouldBreak = true;
-                    break;
-                }
-            }
-            if (shouldBreak)
-            {
-                break;
-            }
-        }
         List<Color> temp = new List<Color>(colours);
+        Debug.Log("Colours: " + colours.Count);
         temp.RemoveAt(temp.Count - 1);
+        Debug.Log("Temp has:" + temp.Count);
         temp.RemoveAt(0);
-        if (levelIndex > 0)
+        if (levelIndex > 0 || Testing)
         {
             shuffledColours = new List<Color>();
             System.Random r = new System.Random();
@@ -137,19 +156,34 @@ public class GameController : MonoBehaviour
             };
         }
         Debug.Log("Found " + colours.Count + " colours");
+
+        for (int index = 0; index < Tiles.Count; index++)
+        {
+            if (shuffledColours.Count > index)
+            {
+                Tile t = Tiles[index];
+                t.ID = index;
+                Color color = shuffledColours[index];
+                int colourIndex = colours.IndexOf(color);
+                t.ColorID = colourIndex;
+                t.SetColor(color);
+            }
+        }
     }
 
     public void CreateLevel()
     {
         if (levelMap != null)
         {
+            colours = new List<Color>();
             int x = 0, y = 0;
             for (int entry = 0; entry < levelMap.height; entry++)
             {
                 Color color = levelMap.GetPixel(0, entry);
-                if (color == Color.white)
+                if (color != Color.white && color != Color.black)
                 {
                     y = entry;
+                    colours.Add(color);
                     SpawnTile(x, y);
                     break;
                 }
@@ -159,15 +193,19 @@ public class GameController : MonoBehaviour
             
             Vector2 current = new Vector2(x, y);
             Vector2 next = current;
-            GetNextTile(current, out next);
+            
+            Color nextColor;
+            GetNextTile(current, out next, out nextColor);
+            
             bool check = true;
             int maxTries = levelMap.height * levelMap.width;
             int tries = 1;
             while (current != next && check)
             {
+                colours.Add(nextColor);
                 SpawnTile((int)next.x, (int)next.y);
                 current = next;
-                if (!GetNextTile(current, out next))
+                if (!GetNextTile(current, out next, out nextColor))
                 {
                     check = false;
                 }
@@ -181,7 +219,7 @@ public class GameController : MonoBehaviour
         }
     }
 
-    private bool GetNextTile(Vector2 current, out Vector2 next)
+    private bool GetNextTile(Vector2 current, out Vector2 next, out Color color)
     {
            
         bool found = false;
@@ -192,10 +230,11 @@ public class GameController : MonoBehaviour
             if (currentDirection != Direction.Left && levelMap.width > right.x)
             {
                 Color c = levelMap.GetPixel((int)right.x, (int)right.y);
-                if (c == Color.white)
+                if (c != Color.white && c != Color.black)
                 {
                     currentDirection = Direction.Right;
                     next = right;
+                    color = c;
                     return true;
                 }
             }
@@ -204,10 +243,11 @@ public class GameController : MonoBehaviour
             if (currentDirection != Direction.Right && left.x >= 0)
             {
                 Color c = levelMap.GetPixel((int)left.x, (int)left.y);
-                if (c == Color.white)
+                if (c != Color.white && c != Color.black)
                 {
                     currentDirection = Direction.Left;
                     next = left;
+                    color = c;
                     return true;
                 }
             }
@@ -217,10 +257,11 @@ public class GameController : MonoBehaviour
             if (currentDirection != Direction.Down && levelMap.height > above.y)
             {
                 Color c = levelMap.GetPixel((int)above.x, (int)above.y);
-                if (c == Color.white)
+                if (c != Color.white && c != Color.black)
                 {
                     currentDirection = Direction.Up;
                     next = above;
+                    color = c;
                     return true;
                 }
             }
@@ -230,15 +271,17 @@ public class GameController : MonoBehaviour
             if (currentDirection != Direction.Up && below.y >= 0)
             {
                 Color c = levelMap.GetPixel((int)below.x, (int)below.y);
-                if (c == Color.white)
+                if (c != Color.white && c != Color.black)
                 {
                     currentDirection = Direction.Down;
                     next = below;
+                    color = c;
                     return true;
                 }
             }
         }
         next = current;
+        color = Color.white;
         return found;
     }
 
@@ -259,15 +302,7 @@ public class GameController : MonoBehaviour
     {
         GameObject g = Instantiate(tile, container);
         Tile t = g.GetComponent<Tile>();
-        int index = Tiles.Count;
-        if (shuffledColours.Count > index)
-        {
-            t.ID = index;
-            Color color = shuffledColours[index];
-            int colourIndex = colours.IndexOf(color);
-            t.ColorID = colourIndex;
-            t.SetColor(color);
-        }
+
         Tiles.Add(t);
         g.transform.position = new Vector3(x, y, 0);
     }
@@ -287,16 +322,25 @@ public class GameController : MonoBehaviour
         }
         else
         {
+            PlaySwap();
             Swap(tile, selected);
             selected = null;
             Selection.SetActive(false);
         }
     }
 
-    public void StartNavigating()
+    public void ToggleNavigation()
     {
-        if (State == GameState.Playing)
+        if (State == GameState.Navigating)
         {
+            State = GameState.Playing;
+            navigationButton.sprite = play;
+            StopCoroutine(Navigation());
+            player.transform.position = Tiles[0].transform.position;
+        }
+        else if (State == GameState.Playing)
+        {
+            navigationButton.sprite = stop;
             StopCoroutine(Navigation());
             State = GameState.Navigating;
             StartCoroutine(Navigation());
@@ -318,18 +362,26 @@ public class GameController : MonoBehaviour
                     if (t.ID == t.ColorID)
                     {
                         player.transform.position = t.transform.position;
-                        yield return new WaitForSeconds(0.35f);
+                        yield return new WaitForSeconds(0.2f);
                     }
                     else
                     {
+                        yield return new WaitForSeconds(1f);
+                        player.transform.position = Tiles[0].transform.position;
                         proceed = false;
                     }
                 }
                 else
                 {
                     //game finished
-                    ResetGame();
+                    int count = Tiles.Count;
+                    float wait = 0f;
+                    wait = count < 10 ? count * 0.1f : count * 0.05f;
+                    StartCoroutine(ResetGame());
+                    PlayLevelFinish();
+                    yield return new WaitForSeconds(wait);
                     levelIndex++;
+                    State = GameState.None;
                     yield return new WaitForSeconds(3f);
                     LoadLevel();
                     proceed = false;
@@ -338,6 +390,7 @@ public class GameController : MonoBehaviour
 
         }
         State = GameState.Playing;
+        navigationButton.sprite = play;
         yield return null;
     }
 
@@ -351,17 +404,40 @@ public class GameController : MonoBehaviour
 
     }
 
-    public void ResetGame()
+    IEnumerator ResetGame(bool instant = false)
     {
+        float wait = 0f;
+        wait = Tiles.Count < 10 ? 0.1f : 0.05f;
+
         Transform[] all = container.GetComponentsInChildren<Transform>();
         for (int i = 1; i < all.Length; i++)
-        {
-            
+        {            
             Destroy(all[i].gameObject);
+            if (!instant)
+            {
+                yield return new WaitForSeconds(wait);
+            }
         }
         Tiles.Clear();
         shuffledColours.Clear();
         colours.Clear();
+        Selection.SetActive(false);
+        yield return null;
+    }
+
+    public void PlayShortClick()
+    {
+        shortClickAudio.Play();
+    }
+
+    public void PlaySwap()
+    {
+        swapAudio.Play();
+    }
+
+    public void PlayLevelFinish()
+    {
+        levelFinishAudio.Play();
     }
 }
 
